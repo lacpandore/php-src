@@ -593,7 +593,12 @@ static void dom_import_simplexml_common(INTERNAL_FUNCTION_PARAMETERS, php_libxml
 		}
 
 		/* Lock the node class type to prevent creating multiple representations of the same node. */
-		nodeobj->document->class_type = new_class;
+		if (new_class == PHP_LIBXML_CLASS_MODERN) {
+			/* Also switches the document handlers, so that serialization follows the modern DOM. */
+			dom_set_xml_class(nodeobj->document);
+		} else {
+			nodeobj->document->class_type = new_class;
+		}
 
 		if (old_class_type != PHP_LIBXML_CLASS_MODERN && new_class == PHP_LIBXML_CLASS_MODERN && nodep->doc != NULL) {
 			dom_document_convert_to_modern(nodeobj->document, nodep->doc);
@@ -1809,6 +1814,10 @@ dom_object *php_dom_instantiate_object_helper(zval *return_value, zend_class_ent
 			intern->document = parent->document;
 		}
 		php_libxml_increment_doc_ref((php_libxml_node_object *)intern, obj->doc);
+		/* Lock the document to the legacy DOM, so that Dom\import_simplexml() rejects it. */
+		if (intern->document->class_type == PHP_LIBXML_CLASS_UNSET && instanceof_function(ce, dom_node_class_entry)) {
+			intern->document->class_type = PHP_LIBXML_CLASS_LEGACY;
+		}
 	}
 
 	php_libxml_increment_node_ptr((php_libxml_node_object *)intern, obj, (void *)intern);
